@@ -1,0 +1,80 @@
+groups:
+  - name: duckmesh-slo-alerts
+    interval: 30s
+    rules:
+      - alert: DuckMeshIngestAckLatencyP95High
+        expr: duckmesh:slo_ingest_ack_latency_ms_p95 > 200
+        for: 10m
+        labels:
+          severity: warning
+          service: duckmesh-api
+        annotations:
+          summary: DuckMesh ingest ack p95 latency exceeds SLO
+          description: p95 ingest acknowledgment latency has been above 200ms for 10 minutes.
+          runbook: docs/runbooks/high-ingest-lag.md
+
+      - alert: DuckMeshWriteToVisibleLatencyP95High
+        expr: duckmesh:slo_write_to_visible_latency_ms_p95 > 3000
+        for: 10m
+        labels:
+          severity: warning
+          service: duckmesh-api
+        annotations:
+          summary: DuckMesh write-to-visible p95 latency exceeds SLO
+          description: p95 write-to-visible latency has been above 3000ms for 10 minutes.
+          runbook: docs/runbooks/high-ingest-lag.md
+
+      - alert: DuckMeshConsistencyTimeoutsDetected
+        expr: duckmesh:slo_consistency_timeouts_15m > 0
+        for: 5m
+        labels:
+          severity: critical
+          service: duckmesh-api
+        annotations:
+          summary: DuckMesh consistency timeouts detected
+          description: Consistency timeout responses were observed in the last 15 minutes.
+          runbook: docs/runbooks/snapshot-publish-failures.md
+
+      - alert: DuckMeshIngestLagEventsHigh
+        expr: duckmesh:slo_ingest_lag_events > 5000
+        for: 10m
+        labels:
+          severity: warning
+          service: duckmesh-api
+        annotations:
+          summary: DuckMesh ingest lag events high
+          description: Pending ingest events have stayed above 5000 for 10 minutes.
+          runbook: docs/runbooks/high-ingest-lag.md
+
+      - alert: DuckMeshVisibilityLagHigh
+        expr: duckmesh:slo_visibility_lag_ms > 3000
+        for: 10m
+        labels:
+          severity: warning
+          service: duckmesh-api
+        annotations:
+          summary: DuckMesh visibility lag exceeds target
+          description: Visibility lag has stayed above 3000ms for 10 minutes.
+          runbook: docs/runbooks/high-ingest-lag.md
+
+      - alert: DuckMeshIntegrityRunFailed
+        expr: duckmesh:slo_integrity_failures_30m > 0
+        for: 5m
+        labels:
+          severity: critical
+          service: duckmesh-compactor
+        annotations:
+          summary: DuckMesh integrity run failed
+          description: At least one integrity run failed in the last 30 minutes.
+          runbook: docs/runbooks/restore-from-backup.md
+
+      - alert: DuckMeshIntegrityMissingFilesDetected
+        expr: duckmesh:slo_integrity_missing_files_30m > 0
+        for: 5m
+        labels:
+          severity: critical
+          service: duckmesh-compactor
+        annotations:
+          summary: DuckMesh integrity check detected missing files
+          description: Integrity validation detected missing object-store files in the last 30 minutes.
+          runbook: docs/runbooks/restore-from-backup.md

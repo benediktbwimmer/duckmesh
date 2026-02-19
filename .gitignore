@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Go
+bin/
+dist/
+*.test
+*.out
+coverage.out
+
+# IDE
+.idea/
+.vscode/
+
+# Env
+.env
+.env.*
+
+# Build/runtime
+.tmp/
+logs/

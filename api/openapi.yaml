@@ -1,0 +1,508 @@
+openapi: 3.1.0
+info:
+  title: DuckMesh API
+  version: 0.1.0-spec
+  description: Specification-first contract for DuckMesh ingestion/query service.
+servers:
+  - url: http://localhost:8080
+paths:
+  /v1/ingest/{table}:
+    post:
+      summary: Ingest records into a logical table
+      parameters:
+        - name: table
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestRequest'
+      responses:
+        '200':
+          description: Ingest accepted (or visible if waiting)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '504': { $ref: '#/components/responses/ConsistencyTimeout' }
+  /v1/query:
+    post:
+      summary: Execute SQL against snapshot-resolved data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+      responses:
+        '200':
+          description: Query result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '504': { $ref: '#/components/responses/ConsistencyTimeout' }
+  /v1/query/translate:
+    post:
+      summary: Translate natural language into DuckDB SQL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranslateRequest'
+      responses:
+        '200':
+          description: Translation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslateResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '502': { $ref: '#/components/responses/InternalError' }
+  /v1/ui/schema:
+    get:
+      summary: Fetch table metadata and sample rows for query autocomplete/assist
+      responses:
+        '200':
+          description: UI schema context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UISchemaResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /v1/tables:
+    get:
+      summary: List logical tables
+      responses:
+        '200':
+          description: Table list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      summary: Create table
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTableRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableInfo'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /v1/tables/{table}:
+    parameters:
+      - name: table
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Get table metadata
+      responses:
+        '200':
+          description: Table metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableInfo'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    patch:
+      summary: Create next schema version for table
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchTableRequest'
+      responses:
+        '200':
+          description: Updated table metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableInfo'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete:
+      summary: Delete table definition
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteTableResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /v1/health:
+    get:
+      summary: Liveness check
+      responses:
+        '200': { description: OK }
+  /v1/ready:
+    get:
+      summary: Readiness check
+      responses:
+        '200': { description: Ready }
+  /v1/metrics:
+    get:
+      summary: Prometheus metrics endpoint
+      responses:
+        '200': { description: Metrics }
+  /v1/lag:
+    get:
+      summary: Get ingest and visibility lag for the calling tenant
+      responses:
+        '200':
+          description: Lag snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LagResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /v1/compaction/run:
+    post:
+      summary: Trigger compaction run for the calling tenant
+      responses:
+        '200':
+          description: Compaction run completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaintenanceRunResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /v1/retention/run:
+    post:
+      summary: Trigger retention/GC run for the calling tenant
+      responses:
+        '200':
+          description: Retention run completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaintenanceRunResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /v1/integrity/run:
+    post:
+      summary: Run snapshot/object-store integrity validation for the calling tenant
+      responses:
+        '200':
+          description: Integrity run completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrityRunResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+components:
+  schemas:
+    IngestRecord:
+      type: object
+      required: [idempotency_key, op, payload]
+      properties:
+        idempotency_key: { type: string }
+        op:
+          type: string
+          enum: [insert, upsert, delete]
+        payload:
+          type: object
+          additionalProperties: true
+        event_time:
+          type: string
+          format: date-time
+    IngestRequest:
+      type: object
+      required: [records]
+      properties:
+        records:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/IngestRecord' }
+        wait_for_visibility:
+          type: boolean
+          default: false
+        visibility_timeout_ms:
+          type: integer
+          minimum: 1
+    IngestResponse:
+      type: object
+      required: [accepted_count, duplicate_count, max_visibility_token, status]
+      properties:
+        accepted_count: { type: integer }
+        duplicate_count: { type: integer }
+        max_visibility_token: { type: integer, format: int64 }
+        visible_snapshot_id: { type: integer, format: int64, nullable: true }
+        status:
+          type: string
+          enum: [accepted, visible, partial_duplicate]
+    QueryRequest:
+      type: object
+      required: [sql]
+      properties:
+        sql: { type: string }
+        params:
+          type: object
+          additionalProperties: true
+        snapshot_id:
+          type: integer
+          format: int64
+        snapshot_time:
+          type: string
+          format: date-time
+        min_visibility_token:
+          type: integer
+          format: int64
+        consistency_timeout_ms:
+          type: integer
+          minimum: 1
+        row_limit:
+          type: integer
+          minimum: 1
+    QueryResponse:
+      type: object
+      required: [columns, rows, snapshot_id, max_visibility_token]
+      properties:
+        columns:
+          type: array
+          items: { type: string }
+        rows:
+          type: array
+          items:
+            type: array
+            items: {}
+        snapshot_id:
+          type: integer
+          format: int64
+        snapshot_time:
+          type: string
+          format: date-time
+        max_visibility_token:
+          type: integer
+          format: int64
+        stats:
+          type: object
+          additionalProperties: true
+    TranslateRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt: { type: string }
+    TranslateResponse:
+      type: object
+      required: [sql, provider, model]
+      properties:
+        sql: { type: string }
+        provider: { type: string }
+        model: { type: string }
+    UISchemaTable:
+      type: object
+      required: [table_name, columns, sample_rows]
+      properties:
+        table_name: { type: string }
+        columns:
+          type: array
+          items: { type: string }
+        sample_rows:
+          type: array
+          items:
+            type: array
+            items: {}
+    UISchemaResponse:
+      type: object
+      required: [tenant_id, tables]
+      properties:
+        tenant_id: { type: string }
+        tables:
+          type: array
+          items: { $ref: '#/components/schemas/UISchemaTable' }
+        snapshot_id: { type: integer, format: int64, nullable: true }
+        snapshot_time: { type: string, format: date-time, nullable: true }
+        max_visibility_token: { type: integer, format: int64, nullable: true }
+    TableInfo:
+      type: object
+      required: [table_id, tenant_id, table_name, schema_version, primary_key_cols, partition_spec, created_at]
+      properties:
+        table_id: { type: integer, format: int64 }
+        tenant_id: { type: string }
+        table_name: { type: string }
+        schema_version: { type: integer }
+        primary_key_cols:
+          type: array
+          items: { type: string }
+        partition_spec:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+    TableListResponse:
+      type: object
+      required: [tenant_id, tables]
+      properties:
+        tenant_id: { type: string }
+        tables:
+          type: array
+          items:
+            $ref: '#/components/schemas/TableInfo'
+    CreateTableRequest:
+      type: object
+      required: [table_name]
+      properties:
+        table_name: { type: string }
+        primary_key_cols:
+          type: array
+          items: { type: string }
+        partition_spec:
+          type: object
+          additionalProperties: true
+        schema_json:
+          type: object
+          additionalProperties: true
+        compatibility_mode: { type: string }
+    PatchTableRequest:
+      type: object
+      required: [schema_json]
+      properties:
+        schema_json:
+          type: object
+          additionalProperties: true
+        compatibility_mode: { type: string }
+    DeleteTableResponse:
+      type: object
+      required: [status, table_name]
+      properties:
+        status:
+          type: string
+          enum: [deleted]
+        table_name: { type: string }
+    ErrorResponse:
+      type: object
+      required: [error_code, message, retryable]
+      properties:
+        error_code: { type: string }
+        message: { type: string }
+        retryable: { type: boolean }
+        context:
+          type: object
+          additionalProperties: true
+        trace_id: { type: string }
+    MaintenanceRunResponse:
+      type: object
+      required: [status, summary]
+      properties:
+        status:
+          type: string
+          enum: [completed]
+        summary:
+          type: object
+          additionalProperties: true
+    IntegritySummary:
+      type: object
+      required:
+        [tenants_scanned, snapshots_scanned, referenced_files, unique_files_checked, missing_files, size_mismatch_files, operational_failures]
+      properties:
+        tenants_scanned: { type: integer, format: int64 }
+        snapshots_scanned: { type: integer, format: int64 }
+        referenced_files: { type: integer, format: int64 }
+        unique_files_checked: { type: integer, format: int64 }
+        missing_files: { type: integer, format: int64 }
+        size_mismatch_files: { type: integer, format: int64 }
+        operational_failures: { type: integer, format: int64 }
+    IntegrityRunResponse:
+      type: object
+      required: [status, summary]
+      properties:
+        status:
+          type: string
+          enum: [completed]
+        summary:
+          $ref: '#/components/schemas/IntegritySummary'
+    LagResponse:
+      type: object
+      required:
+        [tenant_id, accepted_events, claimed_events, pending_events, oldest_pending_lag_ms, token_lag, latest_visibility_token]
+      properties:
+        tenant_id: { type: string }
+        accepted_events: { type: integer, format: int64 }
+        claimed_events: { type: integer, format: int64 }
+        pending_events: { type: integer, format: int64 }
+        oldest_pending_lag_ms: { type: integer, format: int64 }
+        token_lag: { type: integer, format: int64 }
+        latest_visibility_token: { type: integer, format: int64 }
+        latest_snapshot_id: { type: integer, format: int64, nullable: true }
+        latest_snapshot_time: { type: string, format: date-time, nullable: true }
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    ConsistencyTimeout:
+      description: Consistency barrier timeout
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }

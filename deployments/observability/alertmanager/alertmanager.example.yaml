@@ -1,0 +1,52 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: duckmesh-default
+  group_by: [alertname, service, severity]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 3h
+  routes:
+    - matchers:
+        - severity="critical"
+      receiver: duckmesh-critical
+      repeat_interval: 1h
+
+    - matchers:
+        - severity="warning"
+      receiver: duckmesh-warning
+      repeat_interval: 2h
+
+inhibit_rules:
+  - source_matchers:
+      - severity="critical"
+    target_matchers:
+      - severity="warning"
+    equal: [alertname, service]
+
+receivers:
+  - name: duckmesh-default
+    webhook_configs:
+      - url: http://127.0.0.1:5001/duckmesh/default
+        send_resolved: true
+
+  - name: duckmesh-warning
+    webhook_configs:
+      - url: http://127.0.0.1:5001/duckmesh/warning
+        send_resolved: true
+
+  - name: duckmesh-critical
+    webhook_configs:
+      - url: http://127.0.0.1:5001/duckmesh/critical
+        send_resolved: true
+
+# Optional example email receiver:
+#  - name: duckmesh-email
+#    email_configs:
+#      - to: oncall@example.com
+#        from: alertmanager@example.com
+#        smarthost: smtp.example.com:587
+#        auth_username: alertmanager@example.com
+#        auth_password: <secret>
+#        require_tls: true
